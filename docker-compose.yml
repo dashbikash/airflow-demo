@@ -1,30 +1,36 @@
-version: "3"
+version: '3.8'
 services:
-  webserver:
-    build:
-      context: ./app/
-      dockerfile: DockerFile
-    image: puckel/docker-airflow:latest
-    container_name: test_container_test
-    volumes:
-      - /home/ubuntu/dags1/:/usr/local/airflow/dags
-    ports:
-      - 8080:8080
-    networks:
-      - backend
-    restart: always
-    depends_on:
-      - mysqldb
-  mysqldb:
-    image: mysql:5.7
-    environment:
-      MYSQL_ROOT_PASSWORD: helloworld
-      MYSQL_DATABASE: testdb
-    container_name: mysql_container_test
-    ports:
-      - 3306:3306
-    networks:
-      - backend
-networks:
-  backend:
-    driver: "bridge"
+    postgres:
+        image: postgres
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+    scheduler:
+        image: apache/airflow
+        command: scheduler
+        restart_policy:
+            condition: on-failure
+        depends_on:
+            - postgres
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+    webserver:
+        image: apache/airflow
+        entrypoint: ./scripts/entrypoint.sh
+        restart_policy:
+            condition: on-failure
+        depends_on:
+            - postgres
+            - scheduler
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+            - ./scripts:/opt/airflow/scripts
+        ports:
+            - "8080:8080"
